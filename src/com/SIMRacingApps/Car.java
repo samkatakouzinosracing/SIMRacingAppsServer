@@ -31,7 +31,6 @@ public class Car {
 
     private static final int DEFAULT_LAPS_FUEL_MILAGE       = 0;    //zero means use worse lap, average means average
     private static final double FUELLEVELNEEDED_BUFFER_LAPS = 0.0;  //number of laps to add to the remaining laps as a buffer. TODO: GWC could generate the need to add 2 or more laps
-    protected int m_ME                                      = -1;
     protected SIMPlugin m_SIMPlugin                         = null;
     
     //just to make things a little easier, I will just make these protected instead of getters and setters
@@ -221,8 +220,6 @@ public class Car {
      * @return true or false
      */
     public boolean isME() {
-        if (isValid())
-            return m_id == m_ME;
         return false;
     }
 
@@ -663,8 +660,9 @@ public class Car {
         if (m_genericGauge == null) { 
             m_genericGauge = new Gauge(
                     Gauge.Type.GENERIC,
-                    m_SIMPlugin,
-                    this
+                    this,
+                    m_SIMPlugin.getSession().getTrack(),
+                    null
             );
         }
         
@@ -709,12 +707,92 @@ public class Car {
         return new Data("Car/"+m_carIdentifier+"/Gauge",json.toString(),"JSON",Data.State.NORMAL);
     }
     
+    private boolean m_shiftLightsLoaded = false;
     /**
      * Assigns a gauge instance to this car.
      * If one already exists, it is replaced
      * @param gauge A instance of a Gauge defined by {@link com.SIMRacingApps.Gauge}
      */
-    public void setGauge(Gauge gauge) {
+    protected void _setGauge(Gauge gauge) {
+        
+        if (gauge.getType().getString().equalsIgnoreCase(Gauge.Type.SPEEDOMETER))
+        {
+            //convert the track UOM to the gauges UOM
+            //I used to floor it and round it, but that produced problems with accuracy.
+            //This code cannot make any assumptions about the error the track code may return.
+            //In my test file, the speed limit is a published 45mph, but the track code returns 44.7.
+            //My point is, the track code should round it up or floor it, not this code.
+            double PitRoadSpeedLimit = m_SIMPlugin.getSession().getTrack().getPitSpeedLimit(gauge.getUOM().getString()).getDouble();
+
+            //double WayOverPitSpeed     = 1.10;
+            double WayOverPitSpeed     = (PitRoadSpeedLimit + (gauge.getUOM().equals("mph") ? 15.0 : 25.0)) / PitRoadSpeedLimit;
+            double OverPitSpeed        = (PitRoadSpeedLimit + (gauge.getUOM().equals("mph") ? 0.8  : 1.29)) / PitRoadSpeedLimit;
+            double PitSpeed            = (PitRoadSpeedLimit - (gauge.getUOM().equals("mph") ? 0.5  : 0.8))  / PitRoadSpeedLimit;
+            double ApproachingPitSpeed = PitSpeed - (7*.012) - (7*.006);
+
+            gauge._addStateRange("WAYOVERLIMIT",     PitRoadSpeedLimit * WayOverPitSpeed,     Double.MAX_VALUE,                    gauge.getUOM().getString());
+            gauge._addStateRange("OVERLIMIT",        PitRoadSpeedLimit * OverPitSpeed,        PitRoadSpeedLimit * WayOverPitSpeed, gauge.getUOM().getString());
+            gauge._addStateRange("LIMIT",            PitRoadSpeedLimit * PitSpeed,            PitRoadSpeedLimit * OverPitSpeed,    gauge.getUOM().getString());
+            gauge._addStateRange("APPROACHINGLIMIT", PitRoadSpeedLimit * ApproachingPitSpeed, PitRoadSpeedLimit * PitSpeed,        gauge.getUOM().getString());
+
+        }
+
+        if (!m_shiftLightsLoaded) {
+            try {
+                Gauge tachometer = _getGauge(Gauge.Type.TACHOMETER);
+                Gauge gear  = _getGauge(Gauge.Type.GEAR);
+                Gauge power = _getGauge(Gauge.Type.ENGINEPOWER);
+                
+                if (tachometer != null && gear != null && power != null) {
+                    String car  = getName().getString().replace(" ", "_");
+                    String track= m_SIMPlugin.getSession().getTrack().getName().getString().replace(" ", "_");
+        
+                    //allow the user to override the shift light RPM values
+                    //example:
+                    //
+                    //stockcars_chevyss-ShiftLightStart = 6000
+                    //stockcars_chevyss-ShiftLightShift = 7000
+                    //stockcars_chevyss-ShiftLightBlink = 8000
+                    
+                    double DriverCarSLFirstRPM = Server.getArg(
+                                                    String.format(              "%s-%s-ShiftLightStart-%s-%d", track,car,gear.getValueCurrent().getString(),power.getValueCurrent().getInteger()),
+                                                    Server.getArg(String.format("%s-%s-ShiftLightStart-%s",    track,car,gear.getValueCurrent().getString()),
+                                                    Server.getArg(String.format("%s-%s-ShiftLightStart",       track,car),
+                                                    Server.getArg(String.format("%s-ShiftLightStart-%s-%d",          car,gear.getValueCurrent().getString(),power.getValueCurrent().getInteger()),
+                                                    Server.getArg(String.format("%s-ShiftLightStart-%s",             car,gear.getValueCurrent().getString()),
+                                                    Server.getArg(String.format("%s-ShiftLightStart",                car),      -1.0)
+                                                 )))));
+                    double DriverCarSLShiftRPM = Server.getArg(
+                                                    String.format(              "%s-%s-ShiftLightShift-%s-%d", track,car,gear.getValueCurrent().getString(),power.getValueCurrent().getInteger()),
+                                                    Server.getArg(String.format("%s-%s-ShiftLightShift-%s",    track,car,gear.getValueCurrent().getString()),
+                                                    Server.getArg(String.format("%s-%s-ShiftLightShift",       track,car),
+                                                    Server.getArg(String.format("%s-ShiftLightShift-%s-%d",          car,gear.getValueCurrent().getString(),power.getValueCurrent().getInteger()),
+                                                    Server.getArg(String.format("%s-ShiftLightShift-%s",             car,gear.getValueCurrent().getString()),
+                                                    Server.getArg(String.format("%s-ShiftLightShift",                car),      -1.0)
+                                                 )))));
+                    double DriverCarSLBlinkRPM = Server.getArg(
+                                                    String.format(              "%s-%s-ShiftLightBlink-%s-%d", track,car,gear.getValueCurrent().getString(),power.getValueCurrent().getInteger()),
+                                                    Server.getArg(String.format("%s-%s-ShiftLightBlink-%s",    track,car,gear.getValueCurrent().getString()),
+                                                    Server.getArg(String.format("%s-%s-ShiftLightBlink",       track,car),
+                                                    Server.getArg(String.format("%s-ShiftLightBlink-%s-%d",          car,gear.getValueCurrent().getString(),power.getValueCurrent().getInteger()),
+                                                    Server.getArg(String.format("%s-ShiftLightBlink-%s",             car,gear.getValueCurrent().getString()),
+                                                    Server.getArg(String.format("%s-ShiftLightBlink",                car),      -1.0)
+                                                 )))));
+                    
+                    if (DriverCarSLFirstRPM > 0.0 && DriverCarSLShiftRPM > 0.0 && DriverCarSLBlinkRPM > 0.0) {
+                        gauge._addStateRange("SHIFTLIGHTS",            DriverCarSLFirstRPM,                  DriverCarSLShiftRPM, "rev/min");
+                        gauge._addStateRange("SHIFT",                  DriverCarSLShiftRPM,                  DriverCarSLBlinkRPM, "rev/min");
+                        gauge._addStateRange("SHIFTBLINK",             DriverCarSLBlinkRPM,                  999999.0,            "rev/min");
+        
+                        Server.logger().info(String.format("Shift Point from user: First=%.0f, Shift=%.0f, Blink=%.0f",
+                                DriverCarSLFirstRPM,DriverCarSLShiftRPM,DriverCarSLBlinkRPM));
+                    }
+                }
+            }
+            catch (NumberFormatException e) {}
+            m_shiftLightsLoaded = true; 
+        }
+        
         m_gauges.put(gauge.getType().getString().toLowerCase(), gauge);
     }
 
@@ -1880,10 +1958,10 @@ public class Car {
 //        double ApproachingPitSpeed = PitSpeed - (7*.04) - (7*.02);
         double ApproachingPitSpeed = PitSpeed - (range / m_pitRoadSpeedRPM) - ((range / m_pitRoadSpeedRPM)*2);
 
-        gauge._addStateRange("WAYOVERLIMIT",     m_pitRoadSpeedRPM * WayOverPitSpeed,     Double.MAX_VALUE);
-        gauge._addStateRange("OVERLIMIT",        m_pitRoadSpeedRPM * OverPitSpeed,        m_pitRoadSpeedRPM * WayOverPitSpeed);
-        gauge._addStateRange("LIMIT",            m_pitRoadSpeedRPM * PitSpeed,            m_pitRoadSpeedRPM * OverPitSpeed);
-        gauge._addStateRange("APPROACHINGLIMIT", m_pitRoadSpeedRPM * ApproachingPitSpeed, m_pitRoadSpeedRPM * PitSpeed);
+        gauge._addStateRange("WAYOVERLIMIT",     m_pitRoadSpeedRPM * WayOverPitSpeed,     Double.MAX_VALUE,                    "rev/min");
+        gauge._addStateRange("OVERLIMIT",        m_pitRoadSpeedRPM * OverPitSpeed,        m_pitRoadSpeedRPM * WayOverPitSpeed, "rev/min");
+        gauge._addStateRange("LIMIT",            m_pitRoadSpeedRPM * PitSpeed,            m_pitRoadSpeedRPM * OverPitSpeed,    "rev/min");
+        gauge._addStateRange("APPROACHINGLIMIT", m_pitRoadSpeedRPM * ApproachingPitSpeed, m_pitRoadSpeedRPM * PitSpeed,        "rev/min");
         return getRPMPitRoadSpeed();
     }
 
@@ -2001,24 +2079,8 @@ public class Car {
         return "com/SIMRacingApps/SIMPlugins/" + m_SIMPlugin.getSIMName().getString() + "/Cars/" + m_name.replace(" ","_") + ".json";
     }
     
-    /**
-     * This is a factory function that each SIM should override to create a gauge
-     * instance that is specific for this car and type.
-     * 
-     * By default, this will create a gauge that cannot take any readings.
-     * 
-     * @param type The type of gauge as defined by {@link com.SIMRacingApps.Gauge.Type}
-     * @param SIMPluging The instance of the SIM Plugin for the gauge to use to get values.
-     * @param car The car to associate this gauge with.
-     * @return
-     */
-    protected Gauge _gaugeFactory(String type, SIMPlugin SIMPlugin, Car car) {
-        return new Gauge(type,SIMPlugin,car);
-    }
-    
 /****************************Private******************************/
     
-    @SuppressWarnings("unchecked")
     protected void __loadCar() {
 
         String filepath = "com/SIMRacingApps/Car.json";
@@ -2043,110 +2105,9 @@ public class Car {
             m_mfrLogo = logo;
         }
 
-        //now use the gauges defined in the default JSON file to create all the gauges.
-        Map<String,Map<String,Object>> gauges = (Map<String, Map<String, Object>>) file.getJSON().get("Gauges");
-        if (gauges != null) {
-            Iterator<Entry<String, Map<String, Object>>> itr = gauges.entrySet().iterator();
-            while (itr.hasNext()) {
-                Entry<String, Map<String,Object>> gauge = itr.next();
-                setGauge(_gaugeFactory(gauge.getKey(),m_SIMPlugin,this));
-            }
-        }
-/*
-TODO: Let each SIM handle groupings the way they want to        
-        //now create the gauge groups
-        Map<String,ArrayList<String>> groups = (Map<String, ArrayList<String>>) file.getJSON().get("Groups");
-        if (groups != null) {
-            Iterator<Entry<String, ArrayList<String>>> itr = groups.entrySet().iterator();
-            while (itr.hasNext()) {
-                Entry<String, ArrayList<String>> group = itr.next();
-                ArrayList<String> g = group.getValue();
-                for (int i=0; i < g.size(); i++) {
-                    Gauge gauge = _getGauge(group.getKey());
-                    if (gauge != null)
-                        gauge.addGroup(_getGauge(g.get(i)));
-                }
-            }
-        }
-*/
-        {
-            //now set the speedometer states based on pit road speed limit
-            Gauge gauge = _getGauge(Gauge.Type.SPEEDOMETER);
-
-            //convert the track UOM to the gauges UOM
-            //I used to floor it and round it, but that produced problems with accuracy.
-            //This code cannot make any assumptions about the error the track code may return.
-            //In my test file, the speed limit is a published 45mph, but the track code returns 44.7.
-            //My point is, the track code should round it up or floor it, not this code.
-            double PitRoadSpeedLimit = m_SIMPlugin.getSession().getTrack().getPitSpeedLimit(gauge.getUOM().getString()).getDouble();
-
-            //double WayOverPitSpeed     = 1.10;
-            double WayOverPitSpeed     = (PitRoadSpeedLimit + (gauge.getUOM().equals("mph") ? 15.0 : 25.0)) / PitRoadSpeedLimit;
-            double OverPitSpeed        = (PitRoadSpeedLimit + (gauge.getUOM().equals("mph") ? 0.8  : 1.29)) / PitRoadSpeedLimit;
-            double PitSpeed            = (PitRoadSpeedLimit - (gauge.getUOM().equals("mph") ? 0.5  : 0.8))  / PitRoadSpeedLimit;
-            double ApproachingPitSpeed = PitSpeed - (7*.012) - (7*.006);
-
-            gauge._addStateRange("WAYOVERLIMIT",     PitRoadSpeedLimit * WayOverPitSpeed,     Double.MAX_VALUE);
-            gauge._addStateRange("OVERLIMIT",        PitRoadSpeedLimit * OverPitSpeed,        PitRoadSpeedLimit * WayOverPitSpeed);
-            gauge._addStateRange("LIMIT",            PitRoadSpeedLimit * PitSpeed,            PitRoadSpeedLimit * OverPitSpeed);
-            gauge._addStateRange("APPROACHINGLIMIT", PitRoadSpeedLimit * ApproachingPitSpeed, PitRoadSpeedLimit * PitSpeed);
-
-        }
-
-        try {
-            Gauge gauge = _getGauge(Gauge.Type.TACHOMETER);
-            Gauge gear  = _getGauge(Gauge.Type.GEAR);
-            Gauge power = _getGauge(Gauge.Type.ENGINEPOWER);
-            String car  = getName().getString().replace(" ", "_");
-            String track= m_SIMPlugin.getSession().getTrack().getName().getString().replace(" ", "_");
-
-            //allow the user to override the shift light RPM values
-            //example:
-            //
-            //stockcars_chevyss-ShiftLightStart = 6000
-            //stockcars_chevyss-ShiftLightShift = 7000
-            //stockcars_chevyss-ShiftLightBlink = 8000
-            
-            double DriverCarSLFirstRPM = Server.getArg(
-                                            String.format(              "%s-%s-ShiftLightStart-%s-%d", track,car,gear.getValueCurrent().getString(),power.getValueCurrent().getInteger()),
-                                            Server.getArg(String.format("%s-%s-ShiftLightStart-%s",    track,car,gear.getValueCurrent().getString()),
-                                            Server.getArg(String.format("%s-%s-ShiftLightStart",       track,car),
-                                            Server.getArg(String.format("%s-ShiftLightStart-%s-%d",          car,gear.getValueCurrent().getString(),power.getValueCurrent().getInteger()),
-                                            Server.getArg(String.format("%s-ShiftLightStart-%s",             car,gear.getValueCurrent().getString()),
-                                            Server.getArg(String.format("%s-ShiftLightStart",                car),      -1.0)
-                                         )))));
-            double DriverCarSLShiftRPM = Server.getArg(
-                                            String.format(              "%s-%s-ShiftLightShift-%s-%d", track,car,gear.getValueCurrent().getString(),power.getValueCurrent().getInteger()),
-                                            Server.getArg(String.format("%s-%s-ShiftLightShift-%s",    track,car,gear.getValueCurrent().getString()),
-                                            Server.getArg(String.format("%s-%s-ShiftLightShift",       track,car),
-                                            Server.getArg(String.format("%s-ShiftLightShift-%s-%d",          car,gear.getValueCurrent().getString(),power.getValueCurrent().getInteger()),
-                                            Server.getArg(String.format("%s-ShiftLightShift-%s",             car,gear.getValueCurrent().getString()),
-                                            Server.getArg(String.format("%s-ShiftLightShift",                car),      -1.0)
-                                         )))));
-            double DriverCarSLBlinkRPM = Server.getArg(
-                                            String.format(              "%s-%s-ShiftLightBlink-%s-%d", track,car,gear.getValueCurrent().getString(),power.getValueCurrent().getInteger()),
-                                            Server.getArg(String.format("%s-%s-ShiftLightBlink-%s",    track,car,gear.getValueCurrent().getString()),
-                                            Server.getArg(String.format("%s-%s-ShiftLightBlink",       track,car),
-                                            Server.getArg(String.format("%s-ShiftLightBlink-%s-%d",          car,gear.getValueCurrent().getString(),power.getValueCurrent().getInteger()),
-                                            Server.getArg(String.format("%s-ShiftLightBlink-%s",             car,gear.getValueCurrent().getString()),
-                                            Server.getArg(String.format("%s-ShiftLightBlink",                car),      -1.0)
-                                         )))));
-            
-            if (DriverCarSLFirstRPM > 0.0 && DriverCarSLShiftRPM > 0.0 && DriverCarSLBlinkRPM > 0.0) {
-                gauge._addStateRange("SHIFTLIGHTS",            DriverCarSLFirstRPM,                  DriverCarSLShiftRPM);
-                gauge._addStateRange("SHIFT",                  DriverCarSLShiftRPM,                  DriverCarSLBlinkRPM);
-                gauge._addStateRange("SHIFTBLINK",             DriverCarSLBlinkRPM,                  999999.0);
-
-                Server.logger().info(String.format("Shift Point from user: First=%.0f, Shift=%.0f, Blink=%.0f",
-                        DriverCarSLFirstRPM,DriverCarSLShiftRPM,DriverCarSLBlinkRPM));
-            }
-        }
-        catch (NumberFormatException e) {}
-        
-//this.dumpGauges();
         return;
     }
-    
+
     public void dumpGauges() {
         Iterator<Entry<String,Gauge>> itr = m_gauges.entrySet().iterator();
         while (itr.hasNext()) {
