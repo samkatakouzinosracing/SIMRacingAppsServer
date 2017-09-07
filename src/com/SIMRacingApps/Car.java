@@ -655,25 +655,21 @@ public class Car {
      * @param gaugeType One of the enumerated types defined by {@link com.SIMRacingApps.Gauge.Type}
      * @return          A Gauge defined by {@link com.SIMRacingApps.Gauge}
      */
-    private Gauge m_genericGauge = null;
     public Gauge _getGauge(String gaugeType) {
-        if (m_genericGauge == null) { 
-            m_genericGauge = new Gauge(
-                    Gauge.Type.GENERIC,
-                    this,
-                    m_SIMPlugin.getSession().getTrack(),
-                    null
-            );
-        }
-        
         Gauge gauge = m_gauges.get(gaugeType.toLowerCase());
         if (gauge != null)
             return gauge;
         
-        if (!gaugeType.toLowerCase().equals("generic"))
-            Server.logger().warning(String.format("Car._getGauge(%s) not a valid Gauge.Type, returning Generic", gaugeType));
-        
-        return m_genericGauge;
+//        if (!gaugeType.toLowerCase().equals("generic"))
+//            Server.logger().warning(String.format("Car._getGauge(%s) not a valid Gauge.Type, returning Generic", gaugeType));
+
+        //TODO: Need to validate gaugeType is supported, else return a generic gauge.
+        return new Gauge(
+                gaugeType,
+                this,
+                m_SIMPlugin.getSession().getTrack(),
+                null
+        );
     }
 
     /**

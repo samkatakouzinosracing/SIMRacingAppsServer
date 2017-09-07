@@ -572,6 +572,8 @@ public class Gauge {
     protected String m_carIdentifier;
     protected String m_type;
     protected String m_UOM;
+    protected String m_imperial;    //what to return if measurement system is imperial
+    protected String m_metric;      //what to return if measurement system is metric
     protected String m_measurementSystem = "";  //either METRIC or IMPERIAL or none to leave alone
     protected String m_name = "";
     protected String m_typeName = "";
@@ -615,6 +617,7 @@ public class Gauge {
         this.m_car = car;
         this.m_carIdentifier = "I" + m_car.getId().getString();
         this.m_type = type;
+        this.m_UOM = "";
         this.m_stateAscending = true;
         this.m_multiplier = 1.0;
         this.m_isFixed = false;
@@ -674,6 +677,7 @@ public class Gauge {
             }
             catch (FileNotFoundException e) {
                 Server.logger().warning(String.format("(%s) not found",carpath));
+                s_gauges.put(carpath, new HashMap<String, Map<String, Map<String, Object>>>());
             }
         }
         
@@ -705,6 +709,11 @@ public class Gauge {
                 }
             }
         }
+        
+        if (m_imperial == null)
+            this.m_imperial = this.m_UOM;
+        if (m_metric == null)
+            this.m_metric = this.m_UOM;
     }
 
     /**
@@ -875,9 +884,13 @@ public class Gauge {
     /*
      * Rounds the value to the nearest increment and keeps between the min and max inclusively.
      */
-    protected double _roundToIncrement(double value,double increment,double minimum,double maximum) {
+    protected Double _roundToIncrement(double value,String UOM) {
         
         double d = value;
+        double increment = this.m_capacityIncrement.convertUOM(UOM).getDouble();
+        double minimum   = this.m_capacityMinimum.convertUOM(UOM).getDouble(); 
+        double maximum   = this.m_capacityMaximum.convertUOM(UOM).getDouble();
+        
         double floored_d = Math.floor(d / increment) * increment; //floor it to the closest increment
 
         if ((floored_d + (increment/2.0)) <= d)
@@ -900,8 +913,12 @@ public class Gauge {
      * Rounds the value up to the nearest capacity increment if not at an increment value already
      * and keeps between the min and max inclusively.
      */
-    protected double _roundUpToIncrement(double value,double increment,double minimum,double maximum) {
+    protected Double _roundUpToIncrement(double value,String UOM) {
         double d = value;
+        double increment = this.m_capacityIncrement.convertUOM(UOM).getDouble();
+        double minimum   = this.m_capacityMinimum.convertUOM(UOM).getDouble(); 
+        double maximum   = this.m_capacityMaximum.convertUOM(UOM).getDouble();
+        
         double floored_d = Math.floor(d / increment) * increment; //floor it to the closest increment
 
         //now add an increment if we are below the requested value
@@ -991,6 +1008,8 @@ public class Gauge {
      * @return The lap the historical value was taken.
      */
     public Data getLapHistorical() { return new Data("Car/"+m_carIdentifier+"/Gauge/"+m_type+"/LapHistorical",0,"lap",Data.State.NOTAVAILABLE); }
+    //TODO: depreciate. This is here so existing clients will not break.
+    public Data getLapsHistorical() { return getLapHistorical(); }
 
     /**
      * Returns the value of the next value that the object will be at the next pit stop.
@@ -1133,10 +1152,13 @@ public class Gauge {
      * @return A data value prepared for the user.
      */
     protected Data _getReturnValue(Data d,String UOM) {
-        Data r = d.convertUOM(UOM);
+        //use the imperial and metric UOM from the json file instead of the global one.
+        //this allows each car/gauge to decide what UOM to use.
+        //was mainly done for the quart gauges. The global one would return gallons.
+        Data r = d.convertUOM(UOM.equalsIgnoreCase("METRIC") ? m_metric : UOM.equalsIgnoreCase("IMPERIAL") ? m_imperial : UOM);
         r.setState(_getState(r));
         r.setStatePercent(_getStatePercent(r));
-        return d;
+        return r;
     }
     
     /*
@@ -1225,6 +1247,8 @@ public class Gauge {
             if ((s = (String)trackmap.get("Name"))              != null) m_name = s;
             if ((s = (String)trackmap.get("TypeName"))          != null) m_typeName = s;
             if ((s = (String)trackmap.get("UOM"))               != null) m_UOM = s;
+            if ((s = (String)trackmap.get("imperial"))          != null) m_imperial = s;
+            if ((s = (String)trackmap.get("metric"))            != null) m_metric = s;
             if ((b = (Boolean)trackmap.get("StateAscending"))   != null) m_stateAscending = b;
             if ((d = (Double)trackmap.get("Multiplier"))        != null) m_multiplier = d;
             if ((d = (Double)trackmap.get("Minimum"))           != null) _setMinimum(d,m_UOM);
