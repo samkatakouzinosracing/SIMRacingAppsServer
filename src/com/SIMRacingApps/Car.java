@@ -41,6 +41,7 @@ public class Car {
     protected String m_description                          = "An Unknown Car";
     protected String m_mfrLogo                              = "com/SIMRacingApps/Cars/default.png";
     protected double m_pitRoadSpeedRPM                      = -1;
+    protected String m_carPath                              = "com/SIMRacingApps/Car.json";
     protected Map<String,Gauge> m_gauges                    = new TreeMap<String,Gauge>();
    
 
@@ -205,11 +206,13 @@ public class Car {
      * @param SIMPlugin An instance of SIMPlugin.
      * @param id        A numeric value used by the SIM to identify a car
      * @param name      The name of the car as returned by the SIM
+     * @param carPath   The relative path to the car's .json file provided by the SIM
      */
-    public Car(SIMPlugin SIMPlugin, int id, String name) {
+    public Car(SIMPlugin SIMPlugin, int id, String name, String carPath) {
         this.m_SIMPlugin = SIMPlugin;
         this.m_id        = id;
         this.m_name      = name;
+        this.m_carPath   = carPath;
         this.m_carIdentifier = "I" + Integer.toString(m_id);
         
         __loadCar();
@@ -668,7 +671,7 @@ public class Car {
                 gaugeType,
                 this,
                 m_SIMPlugin.getSession().getTrack(),
-                null
+                null,null
         );
     }
 
@@ -2062,49 +2065,101 @@ public class Car {
         return new Data("Car/"+m_carIdentifier+"/Warnings","","text");
     }
 
-    /****** Utility methods *******/
+    static private Map<String,Object> s_profiles = null;
     
-    /**
-     * Returns the path to the car's JSON file for gauge definitions.
-     * Each SIM should override this if needed and return one that is specific to this car.
-     * By default, this returns a path to the SIM's Car's folder with spaces replaced with underscores. 
-     * 
-     * @return The path to the car's JSON file.
-     */
-    public String _getPath() {
-        return "com/SIMRacingApps/SIMPlugins/" + m_SIMPlugin.getSIMName().getString() + "/Cars/" + m_name.replace(" ","_") + ".json";
-    }
-    
-/****************************Private******************************/
-    
-    protected void __loadCar() {
-
-        String filepath = "com/SIMRacingApps/Car.json";
-        FindFile file = null;
-        try {
-            file = new FindFile(filepath);
-        }
-        catch (FileNotFoundException e) {
-            Server.logger().warning(String.format("(%s) cannot open",filepath));
-            return;
-        }
-        if (m_id != -1)
-            Server.logger().info(String.format("(%s) for (%d) - %s",filepath,m_id,m_name));
+    @SuppressWarnings("unchecked")
+    private void __loadCar() {
+        //initialize the definitions cache, if needed
+        if (s_profiles == null)
+            s_profiles = new HashMap<String,Object>();
         
-        String description = (String)file.getJSON().get("Description");
+        FindFile file = null;
+        String filepath = "com/SIMRacingApps/Car.json";
+        Map<String,Object> carMap = null;
+        String description = null;
+        String logo = null;
+        
+        //if the default car has not been loaded, 
+        //then load it and cache it in the m_cars map
+        carMap = (Map<String, Object>) s_profiles.get(filepath);
+        if (carMap == null) {
+            
+            try {
+                file = new FindFile(filepath);
+                carMap = file.getJSON();
+                s_profiles.put(filepath, carMap);
+            }
+            catch (FileNotFoundException e) {
+                Server.logger().severe(String.format("(%s) cannot open",filepath));
+                s_profiles.put(filepath, carMap = new HashMap<String, Object>() );
+            }
+        }
+        
+        description = (String) carMap.get("Description");
+        logo        = (String) carMap.get("MfrLogo");
+
+        //if the SIM's car has not been loaded, 
+        //then load it and cache it in the m_cars map
+        if (m_carPath != null && !m_carPath.isEmpty()) {
+            
+            carMap = (Map<String, Object>) s_profiles.get(m_carPath);
+            if (carMap == null) {
+                try {
+                    file = new FindFile(m_carPath);
+                    carMap = file.getJSON();
+                    s_profiles.put(m_carPath, carMap);
+                    description = (String) carMap.get("Description");
+                    logo        = (String) carMap.get("MfrLogo");
+                }
+                catch (FileNotFoundException e) {
+                    Server.logger().warning(String.format("(%s) not found",m_carPath));
+                    s_profiles.put(m_carPath, carMap = new HashMap<String, Object>());
+                }
+            }
+            if (carMap.containsKey("Description"))
+                description = (String) carMap.get("Description");
+            if (carMap.containsKey("MfrLogo"))
+                logo        = (String) carMap.get("MfrLogo");
+        }
+
         if (description != null) {
             m_description = description;
         }
         
-        String logo = (String)file.getJSON().get("MfrLogo");
         if (logo != null) {
             m_mfrLogo = logo;
         }
+        
+        if (m_id != -1)
+            Server.logger().info(String.format("(%s) for id(%d) - %s (%s)",m_carPath,m_id,m_name,m_description));
+        
 
         return;
     }
 
-    public void dumpGauges() {
+    /**
+     * Returns a map to the default gauges found in the Car.json file.
+     * 
+     * @return A map of the gauges or null if not found
+     */
+    public Map<String,Map<String,Map<String,Object>>> _getDefaultGauges() {
+        @SuppressWarnings("unchecked")
+        Map<String,Map<String,Map<String,Map<String,Object>>>> map = (Map<String, Map<String,Map<String,Map<String,Object>>>>) s_profiles.get("com/SIMRacingApps/Car.json");
+        return map.get("Gauges");
+    }
+    
+    /**
+     * Returns a map to the default gauges found in the SIM's .json file.
+     * 
+     * @return A map of the gauges or null if not found
+     */
+    public Map<String,Map<String,Map<String,Object>>> _getSIMGauges() {
+        @SuppressWarnings("unchecked")
+        Map<String,Map<String,Map<String,Map<String,Object>>>> map = (Map<String, Map<String,Map<String,Map<String,Object>>>>) s_profiles.get(m_carPath);
+        return map.get("Gauges");
+    }
+    
+    public void _dumpGauges() {
         Iterator<Entry<String,Gauge>> itr = m_gauges.entrySet().iterator();
         while (itr.hasNext()) {
             Gauge gauge = itr.next().getValue();

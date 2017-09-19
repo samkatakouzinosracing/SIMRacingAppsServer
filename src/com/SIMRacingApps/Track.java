@@ -93,6 +93,9 @@ public class Track {
             return false;
 
         String trackname = getName().getString();
+        
+        if (trackname.isEmpty())
+            trackname = "default";
 
         if (m_trackmap != null && trackname.equals(m_name)) //if the track hasn't changed, just return
             return false;

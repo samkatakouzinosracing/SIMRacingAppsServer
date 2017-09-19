@@ -1,6 +1,7 @@
 package com.SIMRacingApps;
 
 import java.io.FileNotFoundException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -566,8 +567,6 @@ public class Gauge {
         }
     }
 
-    static private Map<String,Map<String,Map<String,Map<String,Object>>>> s_gauges = null;
-    
     protected Car m_car;
     protected String m_carIdentifier;
     protected String m_type;
@@ -610,9 +609,10 @@ public class Gauge {
      * @param type The type of gauge as defined by {@link com.SIMRacingApps.Gauge.Type}
      * @param SIMPluging The instance of the SIM Plugin for the gauge to use to get values.
      * @param car The car to associate this gauge with.
-     * @param simGauges A map that contains gauge data from the SIM to be applied first. The files can then override those values if needed.
+     * @param simGaugesBefore A map that contains gauge data from the SIM to be applied first. The files can then override those values if needed.
+     * @param simGaugesAfter A map that contains gauge data from the SIM to be applied after the files are processed to override any values in them.
      */
-    public Gauge(String type, Car car, Track track, Map<String, Map<String, Map<String, Object>>> simGauges) {
+    public Gauge(String type, Car car, Track track, Map<String, Map<String, Map<String, Object>>> simGaugesBefore, Map<String, Map<String, Map<String, Object>>> simGaugesAfter) {
         
         this.m_car = car;
         this.m_carIdentifier = "I" + m_car.getId().getString();
@@ -638,53 +638,15 @@ public class Gauge {
         this.m_lapChanged = 1;
         this.m_usedCount = 1;
         
-        //initialize the definitions cache, if needed
-        if (s_gauges == null)
-            s_gauges = new HashMap<String,Map<String,Map<String,Map<String,Object>>>>();
+        //now read the json profiles, gauges passed in first, then default, then overrides from the SIM
+        ArrayList<Map<String, Map<String, Map<String, Object>>>> gaugesList = new ArrayList<Map<String, Map<String, Map<String, Object>>>>();
+        gaugesList.add(simGaugesBefore);
+        gaugesList.add(car._getDefaultGauges());
+        gaugesList.add(car._getSIMGauges());
+        gaugesList.add(simGaugesAfter);
         
-        s_gauges.put("SIMGAUGES", simGauges);
-        
-        FindFile file = null;
-        String filepath = "com/SIMRacingApps/Car.json";
-        
-        //if the default gauges have not been loaded, then load them and cache them in the m_gauges map
-        if (!s_gauges.containsKey(filepath)) {
-            
-            try {
-                file = new FindFile(filepath);
-                @SuppressWarnings("unchecked")
-                Map<String, Map<String, Map<String, Object>>> gauges = (Map<String, Map<String, Map<String, Object>>>) file.getJSON().get("Gauges");
-                if (gauges != null)
-                    s_gauges.put(filepath, gauges);
-            }
-            catch (FileNotFoundException e) {
-                Server.logger().severe(String.format("(%s) cannot open",filepath));
-                return;
-            }
-        }
-
-        String carpath = car._getPath();
-        
-        //if this car's gauges have not been loaded, then load them and cache them in the m_gauges map
-        if (carpath != null && !carpath.isEmpty() && !s_gauges.containsKey(carpath)) {
-            
-            try {
-                file = new FindFile(carpath);
-                @SuppressWarnings("unchecked")
-                Map<String, Map<String, Map<String, Object>>> gauges = (Map<String, Map<String, Map<String, Object>>>) file.getJSON().get("Gauges");
-                if (gauges != null)
-                    s_gauges.put(carpath, gauges);
-            }
-            catch (FileNotFoundException e) {
-                Server.logger().warning(String.format("(%s) not found",carpath));
-                s_gauges.put(carpath, new HashMap<String, Map<String, Map<String, Object>>>());
-            }
-        }
-        
-        //now read the json files, defaults first, then overrides from the specific car
-        String [] paths = {"SIMGAUGES",filepath,carpath};
-        for (String path : paths) {
-            Map<String, Map<String, Map<String, Object>>> gauges = s_gauges.get(path);
+        for (int i=0; i < gaugesList.size(); i++) {
+            Map<String, Map<String, Map<String, Object>>> gauges = gaugesList.get(i);
             
             if (gauges != null && gauges.get(type) != null) {
                 
@@ -710,10 +672,12 @@ public class Gauge {
             }
         }
         
+        //if the .json profile does not specify the Imperial or Metric UOMs
+        //then use the default from the Data class
         if (m_imperial == null)
-            this.m_imperial = this.m_UOM;
+            this.m_imperial = new Data("",0,this.m_UOM).convertUOM("IMPERIAL").getUOM();
         if (m_metric == null)
-            this.m_metric = this.m_UOM;
+            this.m_metric = new Data("",0,this.m_UOM).convertUOM("METRIC").getUOM();
     }
 
     /**
@@ -1129,6 +1093,7 @@ public class Gauge {
         _removeStateRange(name);
 
         m_states.put(start, new StateRange(name.toUpperCase(),start,end,UOM,d));
+        
     }
 
     /*
@@ -1178,7 +1143,7 @@ public class Gauge {
 
             //pick the one with the highest start if the ranges overlap.
             //all ranges overlap NORMAL
-            Double v = value.getDouble(this.m_UOM); //must do the compares of the states in Gauges UOM 
+            double v = value.convertUOM(this.m_UOM).getDouble(); //must do the compares of the states in Gauges UOM 
             while (itr.hasNext()) {
                 StateRange range = itr.next().getValue();
                 //if the value is within the range 
