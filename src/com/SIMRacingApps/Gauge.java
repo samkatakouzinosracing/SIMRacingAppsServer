@@ -1,6 +1,5 @@
 package com.SIMRacingApps;
 
-import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -9,7 +8,6 @@ import java.util.Map.Entry;
 import java.util.TreeMap;
 
 import com.SIMRacingApps.Data;
-import com.SIMRacingApps.Util.FindFile;
 
 /**
  * The Gauge class is used to monitor anything on the car that has a value, or has a value that can be set on the next pit stop.
@@ -612,8 +610,13 @@ public class Gauge {
      * @param simGaugesBefore A map that contains gauge data from the SIM to be applied first. The files can then override those values if needed.
      * @param simGaugesAfter A map that contains gauge data from the SIM to be applied after the files are processed to override any values in them.
      */
-    public Gauge(String type, Car car, Track track, Map<String, Map<String, Map<String, Object>>> simGaugesBefore, Map<String, Map<String, Map<String, Object>>> simGaugesAfter) {
-        
+    public Gauge(
+    		  String type
+    		, Car car
+    		, Track track
+    		, Map<String, Map<String, Map<String, Object>>> simGaugesBefore
+    		, Map<String, Map<String, Map<String, Object>>> simGaugesAfter
+    ) {
         this.m_car = car;
         this.m_carIdentifier = "I" + m_car.getId().getString();
         this.m_type = type;
@@ -637,6 +640,7 @@ public class Gauge {
         this.m_reader = "";
         this.m_lapChanged = 1;
         this.m_usedCount = 1;
+
         
         //now read the json profiles, gauges passed in first, then default, then overrides from the SIM
         ArrayList<Map<String, Map<String, Map<String, Object>>>> gaugesList = new ArrayList<Map<String, Map<String, Map<String, Object>>>>();
@@ -672,7 +676,7 @@ public class Gauge {
             }
         }
         
-        //if the .json profile does not specify the Imperial or Metric UOMs
+	    //if the .json profile does not specify the Imperial or Metric UOMs
         //then use the default from the Data class
         if (m_imperial == null)
             this.m_imperial = new Data("",0,this.m_UOM).convertUOM("IMPERIAL").getUOM();
@@ -747,7 +751,7 @@ public class Gauge {
       *
       * @return The minimum value
       */
-    public Data getMinimum(String UOM) { return m_minimum.convertUOM(UOM); }
+    public Data getMinimum(String UOM) { return _getReturnValue(m_minimum,UOM); }
     public Data getMinimum()           { return getMinimum(m_measurementSystem); }
     
     /**
@@ -760,7 +764,7 @@ public class Gauge {
       *
       * @return The maximum value
       */
-    public Data getMaximum(String UOM) { return m_maximum.convertUOM(UOM); }
+    public Data getMaximum(String UOM) { return _getReturnValue(m_maximum,UOM); }
     public Data getMaximum()           { return getMaximum(m_measurementSystem); }
     
     /**
@@ -796,7 +800,7 @@ public class Gauge {
       * @param UOM (Optional) The UOM to convert the value to, defaults to the gauge's UOM.
       * @return The maximum capacity.
       */
-    public Data getCapacityMaximum(String UOM) { return m_capacityMaximum.convertUOM(UOM); }
+    public Data getCapacityMaximum(String UOM) { return _getReturnValue(m_capacityMaximum,UOM); }
     public Data getCapacityMaximum()           { return getCapacityMaximum(m_measurementSystem); }
 
     /**
@@ -808,7 +812,7 @@ public class Gauge {
       * @param UOM (Optional) The UOM to convert the value to, defaults to the gauge's UOM.
       * @return The minimum capacity.
       */
-    public Data getCapacityMinimum(String UOM) { return m_capacityMinimum.convertUOM(UOM); }
+    public Data getCapacityMinimum(String UOM) { return _getReturnValue(m_capacityMinimum,UOM); }
     public Data getCapacityMinimum()           { return getCapacityMinimum(m_measurementSystem); }
 
     /**
@@ -848,7 +852,7 @@ public class Gauge {
     /*
      * Rounds the value to the nearest increment and keeps between the min and max inclusively.
      */
-    protected Double _roundToIncrement(double value,String UOM) {
+    protected double _roundToIncrement(double value,String UOM) {
         
         double d = value;
         double increment = this.m_capacityIncrement.convertUOM(UOM).getDouble();
@@ -877,7 +881,7 @@ public class Gauge {
      * Rounds the value up to the nearest capacity increment if not at an increment value already
      * and keeps between the min and max inclusively.
      */
-    protected Double _roundUpToIncrement(double value,String UOM) {
+    protected double _roundUpToIncrement(double value,String UOM) {
         double d = value;
         double increment = this.m_capacityIncrement.convertUOM(UOM).getDouble();
         double minimum   = this.m_capacityMinimum.convertUOM(UOM).getDouble(); 
@@ -919,7 +923,7 @@ public class Gauge {
      * @param UOM (Optional) The unit of measure to return, default to the gauges UOM.
      * @return The current value.
      */
-    public Data getValueCurrent(String UOM) { return new Data("Car/"+m_carIdentifier+"/Gauge/"+m_type+"/ValueCurrent",0.0,"",Data.State.NOTAVAILABLE); }
+    public Data getValueCurrent(String UOM) { return _getReturnValue(new Data("Car/"+m_carIdentifier+"/Gauge/"+m_type+"/ValueCurrent",0.0,"",Data.State.NOTAVAILABLE),""); }
     public Data getValueCurrent()           { return getValueCurrent(m_measurementSystem); }
 
     /**
@@ -961,19 +965,17 @@ public class Gauge {
      * @param UOM (Optional) The unit of measure to return it in, defaults to the gauges UOM.
      * @return    The historical value.
      */
-    public Data getValueHistorical(String UOM) { return new Data("Car/"+m_carIdentifier+"/Gauge/"+m_type+"/ValueHistorical",0.0,"",Data.State.NOTAVAILABLE); }
+    public Data getValueHistorical(String UOM) { return _getReturnValue(new Data("Car/"+m_carIdentifier+"/Gauge/"+m_type+"/ValueHistorical",0.0,"",Data.State.NOTAVAILABLE),""); }
     public Data getValueHistorical()           { return getValueHistorical(m_measurementSystem); }
 
     /**
-     * Returns the lap the historical value was taken.
+     * Returns the number of laps since the last change.
      * 
-     * <p>PATH = {@link #getLapHistorical() /Car/(CARIDENTIFIER)/Gauge/(GAUGETYPE)/LapHistorical}
+     * <p>PATH = {@link #getLapsHistorical() /Car/(CARIDENTIFIER)/Gauge/(GAUGETYPE)/LapsHistorical}
      * 
-     * @return The lap the historical value was taken.
+     * @return The lap number of laps since the last change.
      */
-    public Data getLapHistorical() { return new Data("Car/"+m_carIdentifier+"/Gauge/"+m_type+"/LapHistorical",0,"lap",Data.State.NOTAVAILABLE); }
-    //TODO: depreciate. This is here so existing clients will not break.
-    public Data getLapsHistorical() { return getLapHistorical(); }
+    public Data getLapsHistorical() { return new Data("Car/"+m_carIdentifier+"/Gauge/"+m_type+"/LapHistorical",0,"lap",Data.State.NOTAVAILABLE); }
 
     /**
      * Returns the value of the next value that the object will be at the next pit stop.
@@ -1121,65 +1123,27 @@ public class Gauge {
         //this allows each car/gauge to decide what UOM to use.
         //was mainly done for the quart gauges. The global one would return gallons.
         Data r = d.convertUOM(UOM.equalsIgnoreCase("METRIC") ? m_metric : UOM.equalsIgnoreCase("IMPERIAL") ? m_imperial : UOM);
-        r.setState(_getState(r));
-        r.setStatePercent(_getStatePercent(r));
+        
+        //now translate the value if provided
+        Iterator<Entry<Double,StateRange>> itr = m_stateAscending 
+                                               ? m_states.entrySet().iterator()
+                                               : m_states.descendingMap().entrySet().iterator();
+
+        //pick the one with the highest start if the ranges overlap.
+        //all ranges overlap NORMAL
+        double v = r.convertUOM(this.m_UOM).getDouble(); //must do the compares of the states in Gauges UOM 
+        while (itr.hasNext()) {
+            StateRange range = itr.next().getValue();
+            //if the value is within the range 
+            if ((v >= range.start.convertUOM(m_UOM).getDouble() && v < range.end.convertUOM(m_UOM).getDouble())) {
+                r.setState(range.state);
+                r.setStatePercent(((v - range.start.convertUOM(m_UOM).getDouble()) / (range.end.convertUOM(m_UOM).getDouble() - range.start.convertUOM(m_UOM).getDouble())) * 100.0);
+                if (range.value != null)
+                    r.setValue(range.value.getValue(),range.value.getUOM());
+            }
+        }
+        
         return r;
-    }
-    
-    /*
-     * Returns the State Name that matches the range based on the current value.
-     * @return The State Name.
-     */
-    protected String _getState(Data value) {
-        String state = value.getState(); //default to the value's current state.
-
-        if (!state.equals(Data.State.OFF) 
-        &&  !state.equals(Data.State.ERROR)
-        &&  !state.equals(Data.State.NOTAVAILABLE)
-        ) {
-            Iterator<Entry<Double,StateRange>> itr = m_stateAscending 
-                                                   ? m_states.entrySet().iterator()
-                                                   : m_states.descendingMap().entrySet().iterator();
-
-            //pick the one with the highest start if the ranges overlap.
-            //all ranges overlap NORMAL
-            double v = value.convertUOM(this.m_UOM).getDouble(); //must do the compares of the states in Gauges UOM 
-            while (itr.hasNext()) {
-                StateRange range = itr.next().getValue();
-                //if the value is within the range 
-                if ((v >= range.start.convertUOM(m_UOM).getDouble() && v < range.end.convertUOM(m_UOM).getDouble()))
-                    state = range.state;
-            }
-        }
-
-        return state;
-    }
-
-    /**
-     * Returns a percentage that represents where the current value falls between the starting and ending value.
-     * The percentage will be between 0.0 and 100.0.
-     * @return The state percentage.
-     */
-    protected double _getStatePercent(Data value) {
-        double d = value.getStatePercent(); //default to the value's percentage.
-        String state = value.getState();
-
-        //if the value.State is not OFF or ERROR, then lookup the state
-        if (!state.equals(Data.State.OFF) 
-        &&  !state.equals(Data.State.ERROR)
-        &&  !state.equals(Data.State.NOTAVAILABLE)
-        ) {
-            Iterator<Entry<Double,StateRange>> itr = m_states.entrySet().iterator();
-
-            while (itr.hasNext()) {
-                StateRange range = itr.next().getValue();
-                double v = value.convertUOM(m_UOM).getDouble();
-                if (v >= range.start.convertUOM(m_UOM).getDouble() && v < range.end.convertUOM(m_UOM).getDouble())
-                    d = ((v - range.start.convertUOM(m_UOM).getDouble()) / (range.end.convertUOM(m_UOM).getDouble() - range.start.convertUOM(m_UOM).getDouble())) * 100.0;
-            }
-        }
-
-        return d;
     }
     
     //This setters allows the gauges to be modified by the SIM after the JSON files have been loaded
