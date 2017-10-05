@@ -611,11 +611,11 @@ public class Gauge {
      * @param simGaugesAfter A map that contains gauge data from the SIM to be applied after the files are processed to override any values in them.
      */
     public Gauge(
-    		  String type
-    		, Car car
-    		, Track track
-    		, Map<String, Map<String, Map<String, Object>>> simGaugesBefore
-    		, Map<String, Map<String, Map<String, Object>>> simGaugesAfter
+          String type
+        , Car car
+        , Track track
+        , Map<String, Map<String, Map<String, Object>>> simGaugesBefore
+        , Map<String, Map<String, Map<String, Object>>> simGaugesAfter
     ) {
         this.m_car = car;
         this.m_carIdentifier = "I" + m_car.getId().getString();
@@ -838,7 +838,7 @@ public class Gauge {
       * 
       * @return true if gauge is fixed, false of not.
       */
-    public Data getIsFixed() { return new Data("Car/"+m_carIdentifier+"/Gauge/"+m_type+"/IsFixed",m_isFixed,"boolean");}
+    public Data getIsFixed() { return new Data("Car/"+m_carIdentifier+"/Gauge/"+m_type+"/IsFixed",m_isFixed,"boolean",Data.State.NORMAL);}
     
     /**
       * Returns true if this gauge represents an object that can be replaced/changed at the next pit stop (i.e. Tires, Tearoff usually)
@@ -847,8 +847,17 @@ public class Gauge {
       * 
       * @return true if gauge is changeable, false of not.
       */
-    public Data getIsChangeable() { return new Data("Car/"+m_carIdentifier+"/Gauge/"+m_type+"/IsChangeable",m_isChangable,"boolean");}
+    public Data getIsChangeable() { return new Data("Car/"+m_carIdentifier+"/Gauge/"+m_type+"/IsChangeable",m_isChangable,"boolean",Data.State.NORMAL);}
 
+    /**
+     * Returns true if this gauge is changed on a reset. 
+     * 
+     * <p>PATH = {@link #getOnResetChange() /Car/(CARIDENTIFIER)/Gauge/(GAUGETYPE)/OnResetChange}
+     * 
+     * @return true if gauge is changed on a reset, false of not.
+     */
+   public Data getOnResetChange() { return new Data("Car/"+m_carIdentifier+"/Gauge/"+m_type+"/OnResetChange",m_onResetChange,"boolean",Data.State.NORMAL);}
+   
     /*
      * Rounds the value to the nearest increment and keeps between the min and max inclusively.
      */
@@ -913,7 +922,7 @@ public class Gauge {
      * 
      * @return Y if dirty, N if not.
      */
-    public Data getIsDirty() { return new Data("Car/"+m_carIdentifier+"/Gauge/"+m_type+"/IsDirty",m_isDirty,"boolean"); }
+    public Data getIsDirty() { return new Data("Car/"+m_carIdentifier+"/Gauge/"+m_type+"/IsDirty",m_isDirty,"boolean",Data.State.NORMAL); }
 
     /**
      * Returns the current value of the gauge. 
@@ -996,7 +1005,7 @@ public class Gauge {
      * 
      * @return Y if flagged for changed, N if not.
      */
-    public Data getChangeFlag() { return new Data("Car/"+m_carIdentifier+"/Gauge/"+m_type+"/ChangeFlag",m_changeFlag,"boolean"); }
+    public Data getChangeFlag() { return new Data("Car/"+m_carIdentifier+"/Gauge/"+m_type+"/ChangeFlag",m_changeFlag,"boolean",Data.State.NORMAL); }
 
     /**
      * Sets the change flag for this gauge and all the gauges grouped with it.
@@ -1054,7 +1063,7 @@ public class Gauge {
      */
     public Data setValueNext(double value, String UOM) { return getValueNext(UOM); }
     public Data setValueNext(String value, String UOM) { return setValueNext(Double.parseDouble(value),UOM); }
-    public Data setValueNext(String value)             { return setValueNext(value,""); }
+    public Data setValueNext(String value)             { return setValueNext(value,m_UOM); }
     public Data setValueNext()                         { return setValueNext("0"); }
 
     /**
@@ -1147,17 +1156,17 @@ public class Gauge {
     }
     
     //This setters allows the gauges to be modified by the SIM after the JSON files have been loaded
-    public void _setMinimum(double d, String uom) { m_minimum.setValue(d,uom); }
-    public void _setMaximum(double d, String uom) { m_maximum.setValue(d,uom); }
-    public void _setMajorIncrement(double d, String uom) { m_majorIncrement.setValue(d,uom); }
-    public void _setMinorIncrement(double d, String uom) { m_minorIncrement.setValue(d,uom); }
-    public void _setCapacityMinimum(double d, String uom) { m_capacityMinimum.setValue(d,uom); }
-    public void _setCapacityMaximum(double d, String uom) { m_capacityMaximum.setValue(d,uom); }
-    public void _setCapacityIncrement(double d, String uom) { m_capacityIncrement.setValue(d,uom); }
-    public void _setIsFixed(boolean b) { m_isFixed = b; }
-    public void _setIsChangable(boolean b) { m_isChangable = b; }
-    public void _setIsDirty(boolean b) { m_isDirty = b; }
-    public void _setOnResetChange(boolean b) { m_onResetChange = b; }
+    public Data _setMinimum(double d, String uom) { return m_minimum.setValue(d,uom); }
+    public Data _setMaximum(double d, String uom) { return m_maximum.setValue(d,uom); }
+    public Data _setMajorIncrement(double d, String uom) { return m_majorIncrement.setValue(d,uom); }
+    public Data _setMinorIncrement(double d, String uom) { return m_minorIncrement.setValue(d,uom); }
+    public Data _setCapacityMinimum(double d, String uom) { return m_capacityMinimum.setValue(d,uom); }
+    public Data _setCapacityMaximum(double d, String uom) { return m_capacityMaximum.setValue(d,uom); }
+    public Data _setCapacityIncrement(double d, String uom) { return m_capacityIncrement.setValue(d,uom); }
+    public Data _setIsFixed(boolean b) { m_isFixed = b; return getIsFixed(); }
+    public Data _setIsChangable(boolean b) { m_isChangable = b; return getIsChangeable(); }
+    public Data _setIsDirty(boolean b) {  m_isDirty = b; return getIsDirty(); }
+    public Data _setOnResetChange(boolean b) { m_onResetChange = b; return getOnResetChange(); }
     
     /****************************************/
     /****************************************/
