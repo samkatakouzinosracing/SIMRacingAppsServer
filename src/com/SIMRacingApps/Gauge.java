@@ -1154,9 +1154,13 @@ public class Gauge {
         //was mainly done for the quart gauges. The global one would return gallons.
         Data r = d.convertUOM(UOM.equalsIgnoreCase("METRIC") ? m_metric : UOM.equalsIgnoreCase("IMPERIAL") ? m_imperial : UOM);
 
-        TreeMap<Double, StateRange> states = m_states.get("-"+gear+"-"+power);
-        states = states == null ? m_states.get("-"+gear) : states;
-        states = states == null ? m_states.get("") : states;
+        TreeMap<Double, StateRange> states = null;
+        if (!gear.isEmpty() && !power.isEmpty()) 
+            states = m_states.get("-"+gear+"-"+power);
+        if (!gear.isEmpty() && states == null)
+            states = m_states.get("-"+gear);
+        if (states == null)
+            states = m_states.get("");
         
         if (states != null) {
             //now translate the value if provided
