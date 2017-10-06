@@ -678,10 +678,16 @@ public class Gauge {
         
 	    //if the .json profile does not specify the Imperial or Metric UOMs
         //then use the default from the Data class
-        if (m_imperial == null)
-            this.m_imperial = new Data("",0,this.m_UOM).convertUOM("IMPERIAL").getUOM();
-        if (m_metric == null)
-            this.m_metric = new Data("",0,this.m_UOM).convertUOM("METRIC").getUOM();
+        if (this.m_UOM.equalsIgnoreCase("kg") || this.m_UOM.equalsIgnoreCase("lb")) {
+            m_metric   = "kg"; 
+            m_imperial = "lb";
+        }
+        else {
+            if (m_imperial == null)
+                this.m_imperial = new Data("",0,this.m_UOM).convertUOM("IMPERIAL").getUOM();
+            if (m_metric == null)
+                this.m_metric = new Data("",0,this.m_UOM).convertUOM("METRIC").getUOM();
+        }
     }
 
     /**
