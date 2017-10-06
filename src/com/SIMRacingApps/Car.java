@@ -729,10 +729,10 @@ public class Car {
             double PitSpeed            = (PitRoadSpeedLimit - (gauge.getUOM().equals("mph") ? 0.5  : 0.8))  / PitRoadSpeedLimit;
             double ApproachingPitSpeed = PitSpeed - (7*.012) - (7*.006);
 
-            gauge._addStateRange("WAYOVERLIMIT",     PitRoadSpeedLimit * WayOverPitSpeed,     Double.MAX_VALUE,                    gauge.getUOM().getString());
-            gauge._addStateRange("OVERLIMIT",        PitRoadSpeedLimit * OverPitSpeed,        PitRoadSpeedLimit * WayOverPitSpeed, gauge.getUOM().getString());
-            gauge._addStateRange("LIMIT",            PitRoadSpeedLimit * PitSpeed,            PitRoadSpeedLimit * OverPitSpeed,    gauge.getUOM().getString());
-            gauge._addStateRange("APPROACHINGLIMIT", PitRoadSpeedLimit * ApproachingPitSpeed, PitRoadSpeedLimit * PitSpeed,        gauge.getUOM().getString());
+            gauge._addStateRange("","WAYOVERLIMIT",     PitRoadSpeedLimit * WayOverPitSpeed,     Double.MAX_VALUE,                    gauge.getUOM().getString());
+            gauge._addStateRange("","OVERLIMIT",        PitRoadSpeedLimit * OverPitSpeed,        PitRoadSpeedLimit * WayOverPitSpeed, gauge.getUOM().getString());
+            gauge._addStateRange("","LIMIT",            PitRoadSpeedLimit * PitSpeed,            PitRoadSpeedLimit * OverPitSpeed,    gauge.getUOM().getString());
+            gauge._addStateRange("","APPROACHINGLIMIT", PitRoadSpeedLimit * ApproachingPitSpeed, PitRoadSpeedLimit * PitSpeed,        gauge.getUOM().getString());
 
         }
 
@@ -779,9 +779,9 @@ public class Car {
                                                  )))));
                     
                     if (DriverCarSLFirstRPM > 0.0 && DriverCarSLShiftRPM > 0.0 && DriverCarSLBlinkRPM > 0.0) {
-                        gauge._addStateRange("SHIFTLIGHTS",            DriverCarSLFirstRPM,                  DriverCarSLShiftRPM, "rev/min");
-                        gauge._addStateRange("SHIFT",                  DriverCarSLShiftRPM,                  DriverCarSLBlinkRPM, "rev/min");
-                        gauge._addStateRange("SHIFTBLINK",             DriverCarSLBlinkRPM,                  999999.0,            "rev/min");
+                        gauge._addStateRange("","SHIFTLIGHTS",            DriverCarSLFirstRPM,                  DriverCarSLShiftRPM, "rev/min");
+                        gauge._addStateRange("","SHIFT",                  DriverCarSLShiftRPM,                  DriverCarSLBlinkRPM, "rev/min");
+                        gauge._addStateRange("","SHIFTBLINK",             DriverCarSLBlinkRPM,                  999999.0,            "rev/min");
         
                         Server.logger().info(String.format("Shift Point from user: First=%.0f, Shift=%.0f, Blink=%.0f",
                                 DriverCarSLFirstRPM,DriverCarSLShiftRPM,DriverCarSLBlinkRPM));
@@ -1957,10 +1957,10 @@ public class Car {
 //        double ApproachingPitSpeed = PitSpeed - (7*.04) - (7*.02);
         double ApproachingPitSpeed = PitSpeed - (range / m_pitRoadSpeedRPM) - ((range / m_pitRoadSpeedRPM)*2);
 
-        gauge._addStateRange("WAYOVERLIMIT",     m_pitRoadSpeedRPM * WayOverPitSpeed,     Double.MAX_VALUE,                    "rev/min");
-        gauge._addStateRange("OVERLIMIT",        m_pitRoadSpeedRPM * OverPitSpeed,        m_pitRoadSpeedRPM * WayOverPitSpeed, "rev/min");
-        gauge._addStateRange("LIMIT",            m_pitRoadSpeedRPM * PitSpeed,            m_pitRoadSpeedRPM * OverPitSpeed,    "rev/min");
-        gauge._addStateRange("APPROACHINGLIMIT", m_pitRoadSpeedRPM * ApproachingPitSpeed, m_pitRoadSpeedRPM * PitSpeed,        "rev/min");
+        gauge._addStateRange("","WAYOVERLIMIT",     m_pitRoadSpeedRPM * WayOverPitSpeed,     Double.MAX_VALUE,                    "rev/min");
+        gauge._addStateRange("","OVERLIMIT",        m_pitRoadSpeedRPM * OverPitSpeed,        m_pitRoadSpeedRPM * WayOverPitSpeed, "rev/min");
+        gauge._addStateRange("","LIMIT",            m_pitRoadSpeedRPM * PitSpeed,            m_pitRoadSpeedRPM * OverPitSpeed,    "rev/min");
+        gauge._addStateRange("","APPROACHINGLIMIT", m_pitRoadSpeedRPM * ApproachingPitSpeed, m_pitRoadSpeedRPM * PitSpeed,        "rev/min");
         return getRPMPitRoadSpeed();
     }
 
@@ -2214,9 +2214,9 @@ public class Car {
                                          )))));
             
             if (DriverCarSLFirstRPM > 0.0 && DriverCarSLShiftRPM > 0.0 && DriverCarSLBlinkRPM > 0.0) {
-                gauge._addStateRange("SHIFTLIGHTS",            DriverCarSLFirstRPM,                  DriverCarSLShiftRPM, "rev/min");
-                gauge._addStateRange("SHIFT",                  DriverCarSLShiftRPM,                  DriverCarSLBlinkRPM, "rev/min");
-                gauge._addStateRange("SHIFTBLINK",             DriverCarSLBlinkRPM,                  999999.0,            "rev/min");
+                gauge._addStateRange("","SHIFTLIGHTS",            DriverCarSLFirstRPM,                  DriverCarSLShiftRPM, "rev/min");
+                gauge._addStateRange("","SHIFT",                  DriverCarSLShiftRPM,                  DriverCarSLBlinkRPM, "rev/min");
+                gauge._addStateRange("","SHIFTBLINK",             DriverCarSLBlinkRPM,                  999999.0,            "rev/min");
 
                 Server.logger().info(String.format("Shift Point from user: First=%.0f, Shift=%.0f, Blink=%.0f",
                         DriverCarSLFirstRPM,DriverCarSLShiftRPM,DriverCarSLBlinkRPM));
