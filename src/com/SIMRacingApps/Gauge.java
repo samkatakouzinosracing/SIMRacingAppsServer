@@ -36,7 +36,7 @@ import com.SIMRacingApps.Data;
  * It has an increment that all values will be rounded to when changing it.
  * <p>
  * A gauge can also have "State", which is defined range(s) of values. 
- * Standard States are "OFF", "ERROR" and "NORMAL".
+ * Standard States are "NOTAVAILABLE", "OFF", "ERROR" and "NORMAL".
  * Clients can choose to display different colors, blink, or other visual effects based on the state.
  * Many gauges also have additional states. 
  * See {@link com.SIMRacingApps.Gauge.Type} for each gauges documentation for the states it supports.
@@ -51,7 +51,8 @@ public class Gauge {
     /**
      * This defines all the possible gauge types.
      * Gauges have predefined states based on ranges of values.
-     * All gauges support the standard states of 
+     * All gauges support the standard states of
+     * "NOTAVAILABLE" (This gauge doesn't exist in this car) 
      * "OFF" (The gauge is turned off), 
      * "NORMAL" (The gauge is on and outputting values)
      * "ERROR" (There's a problem reading the value of this gauge).
@@ -1167,8 +1168,15 @@ public class Gauge {
             states = m_states.get("-"+gear);
         if (states == null)
             states = m_states.get("");
-        
-        if (states != null) {
+
+        if (states != null 
+           //if state has not already been set, the look it up
+        && (  d.getState().equalsIgnoreCase(Data.State.NORMAL)
+           || d.getState().equalsIgnoreCase(Data.State.ERROR)
+           || d.getState().equalsIgnoreCase(Data.State.NOTAVAILABLE)
+           || d.getState().equalsIgnoreCase(Data.State.OFF)
+           )
+        ) {
             //now translate the value if provided
             Iterator<Entry<Double,StateRange>> itr = m_stateAscending 
                                                    ? states.entrySet().iterator()
@@ -1181,8 +1189,11 @@ public class Gauge {
                 StateRange range = itr.next().getValue();
                 //if the value is within the range 
                 if ((v >= range.start.convertUOM(m_UOM).getDouble() && v < range.end.convertUOM(m_UOM).getDouble())) {
-                    r.setState(range.state);
-                    r.setStatePercent(((v - range.start.convertUOM(m_UOM).getDouble()) / (range.end.convertUOM(m_UOM).getDouble() - range.start.convertUOM(m_UOM).getDouble())) * 100.0);
+                    //only if the original state was NORMAL, change the state
+                    if (d.getState().equalsIgnoreCase(Data.State.NORMAL)) {
+                        r.setState(range.state);
+                        r.setStatePercent(((v - range.start.convertUOM(m_UOM).getDouble()) / (range.end.convertUOM(m_UOM).getDouble() - range.start.convertUOM(m_UOM).getDouble())) * 100.0);
+                    }
                     if (range.value != null)
                         r.setValue(range.value.getValue(),range.value.getUOM());
                 }
